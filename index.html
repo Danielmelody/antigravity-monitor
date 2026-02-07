@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#070A12" />
+    <title>Antigravity Monitor</title>
+    <meta
+      name="description"
+      content="A static GitHub Pages dashboard for checking Antigravity / Google One AI quota usage via Cloud Code APIs."
+    />
+
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./css/style.css" />
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      // Keep Tailwind setup inline (no build tools).
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              display: ["ui-sans-serif", "system-ui", "sans-serif"],
+              mono: ["ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
+            },
+            colors: {
+              ag: {
+                bg: "#070A12",
+                panel: "#0B1020",
+                panel2: "#0A132A",
+                edge: "#1D2B52",
+                text: "#D7E2FF",
+                muted: "#8EA2D9",
+                neon: "#7C5CFF",
+                cyan: "#42E8F4",
+                lime: "#A6FF4D",
+                amber: "#FFB547",
+                red: "#FF4D6D",
+              },
+            },
+            boxShadow: {
+              glow: "0 0 0 1px rgba(124,92,255,0.25), 0 16px 60px rgba(0,0,0,0.55)",
+              glowCyan: "0 0 0 1px rgba(66,232,244,0.22), 0 18px 70px rgba(0,0,0,0.58)",
+            },
+          },
+        },
+      };
+    </script>
+
+    <!-- Google Identity Services (GSI) -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+  </head>
+  <body class="min-h-screen bg-ag-bg text-ag-text antialiased">
+    <div id="bg" aria-hidden="true" class="ag-bg pointer-events-none"></div>
+
+    <header class="sticky top-0 z-40 border-b border-white/5 bg-ag-bg/65 backdrop-blur">
+      <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
+        <div class="flex items-center gap-3">
+          <div class="relative">
+            <div class="h-9 w-9 rounded-xl bg-gradient-to-br from-ag-neon/70 via-ag-cyan/30 to-ag-lime/20 shadow-glow"></div>
+            <div class="absolute inset-[6px] rounded-lg bg-ag-bg/80"></div>
+            <div class="absolute inset-0 grid place-items-center">
+              <span class="font-mono text-xs tracking-widest text-ag-cyan">AG</span>
+            </div>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="text-base font-semibold tracking-wide">Antigravity Monitor</h1>
+              <span
+                id="statusPill"
+                class="hidden rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-ag-muted"
+              ></span>
+            </div>
+            <p class="text-xs text-ag-muted">Cloud Code quota dashboard</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button
+            id="refreshBtn"
+            class="hidden rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-ag-text hover:border-white/20 hover:bg-white/10"
+            title="Refresh now"
+          >
+            Refresh
+          </button>
+          <button
+            id="settingsBtn"
+            class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-ag-text hover:border-white/20 hover:bg-white/10"
+          >
+            Settings
+          </button>
+          <button
+            id="authBtn"
+            class="rounded-xl bg-gradient-to-r from-ag-neon/90 to-ag-cyan/80 px-3 py-2 text-xs font-semibold text-black shadow-glowCyan hover:brightness-110"
+          >
+            Sign in
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="mx-auto max-w-6xl px-4 py-8">
+      <!-- Hero -->
+      <section id="hero" class="block">
+        <div class="ag-panel overflow-hidden">
+          <div class="relative px-6 py-8 sm:px-8">
+            <div class="absolute inset-0 opacity-70">
+              <div class="ag-noise"></div>
+            </div>
+            <div class="relative grid gap-6 sm:grid-cols-2 sm:items-center">
+              <div>
+                <p class="text-xs font-semibold tracking-[0.28em] text-ag-muted">ANTIGRAVITY CONSOLE COMPANION</p>
+                <h2 class="mt-3 text-2xl font-semibold leading-tight sm:text-3xl">
+                  Track Claude and Gemini quotas in real time.
+                </h2>
+                <p class="mt-3 max-w-prose text-sm text-ag-muted">
+                  This is a static GitHub Pages app. It signs you in with Google via GSI, calls Cloud Code internal
+                  endpoints, and renders your per-model reset timers and remaining quotas.
+                </p>
+                <div class="mt-6 flex flex-wrap gap-3">
+                  <button
+                    id="heroSignInBtn"
+                    class="rounded-2xl bg-gradient-to-r from-ag-neon/90 to-ag-cyan/80 px-5 py-3 text-sm font-semibold text-black shadow-glowCyan hover:brightness-110"
+                  >
+                    Sign in with Google
+                  </button>
+                  <button
+                    id="heroOpenSettingsBtn"
+                    class="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-ag-text hover:border-white/20 hover:bg-white/10"
+                  >
+                    Configure Client ID
+                  </button>
+                </div>
+                <p class="mt-3 text-xs text-ag-muted">
+                  You must provide your own OAuth Client ID (Web app) in Settings. No secrets are stored.
+                </p>
+              </div>
+              <div class="relative">
+                <div class="rounded-3xl border border-white/10 bg-gradient-to-b from-ag-panel2 to-ag-panel p-6 shadow-glow">
+                  <div class="flex items-start justify-between gap-4">
+                    <div>
+                      <p class="text-xs font-semibold tracking-[0.22em] text-ag-muted">WHAT YOU GET</p>
+                      <ul class="mt-4 space-y-3 text-sm text-ag-text">
+                        <li class="flex gap-2">
+                          <span class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-ag-cyan"></span>
+                          Subscription tier badge (free / pro / ultra)
+                        </li>
+                        <li class="flex gap-2">
+                          <span class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-ag-neon"></span>
+                          Per-model quota bars, remaining percentage
+                        </li>
+                        <li class="flex gap-2">
+                          <span class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-ag-lime"></span>
+                          Reset countdowns and auto-refresh every 30s
+                        </li>
+                      </ul>
+                    </div>
+                    <div class="rounded-2xl border border-white/10 bg-white/5 p-3">
+                      <div class="h-10 w-10 rounded-xl bg-ag-bg/70 ring-1 ring-white/10"></div>
+                    </div>
+                  </div>
+                  <div class="mt-6 rounded-2xl border border-white/10 bg-black/30 p-4">
+                    <div class="flex items-center justify-between">
+                      <span class="text-xs font-medium text-ag-muted">Next refresh</span>
+                      <span id="heroNextRefresh" class="font-mono text-xs text-ag-text">--:--</span>
+                    </div>
+                    <div class="mt-3 h-2 overflow-hidden rounded-full bg-white/5">
+                      <div class="h-full w-1/3 rounded-full bg-gradient-to-r from-ag-neon/80 to-ag-cyan/80"></div>
+                    </div>
+                    <p class="mt-3 text-xs text-ag-muted">
+                      Requests use Cloud Code API headers. Note: browsers cannot override the real <span class="font-mono">User-Agent</span> header.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Dashboard -->
+      <section id="dash" class="hidden">
+        <div class="grid gap-6 lg:grid-cols-3">
+          <div class="lg:col-span-1">
+            <div class="ag-panel p-5">
+              <div class="flex items-center justify-between">
+                <p class="text-xs font-semibold tracking-[0.28em] text-ag-muted">ACCOUNT</p>
+                <span id="tierBadge" class="hidden"></span>
+              </div>
+
+              <div class="mt-5 flex items-center gap-4">
+                <div class="relative">
+                  <img
+                    id="userAvatar"
+                    alt=""
+                    class="h-12 w-12 rounded-2xl border border-white/10 bg-white/5 object-cover"
+                  />
+                  <div class="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-ag-bg ring-1 ring-white/15">
+                    <div id="onlineDot" class="mt-1 ml-1 h-2 w-2 rounded-full bg-ag-muted"></div>
+                  </div>
+                </div>
+                <div class="min-w-0">
+                  <p id="userName" class="truncate text-sm font-semibold text-ag-text">—</p>
+                  <p id="userEmail" class="truncate text-xs text-ag-muted">—</p>
+                </div>
+              </div>
+
+              <div class="mt-5 grid gap-3">
+                <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div class="flex items-center justify-between gap-3">
+                    <p class="text-xs font-medium text-ag-muted">Auto-refresh</p>
+                    <p id="nextRefresh" class="font-mono text-xs text-ag-text">—</p>
+                  </div>
+                  <div class="mt-3 flex items-center justify-between gap-3">
+                    <p class="text-xs font-medium text-ag-muted">API host</p>
+                    <p id="apiHost" class="font-mono text-[11px] text-ag-text">—</p>
+                  </div>
+                </div>
+
+                <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <p class="text-xs font-medium text-ag-muted">Last update</p>
+                  <p id="lastUpdate" class="mt-2 font-mono text-xs text-ag-text">—</p>
+                  <p id="lastError" class="mt-2 hidden text-xs text-ag-red"></p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="lg:col-span-2">
+            <div class="ag-panel p-5">
+              <div class="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <p class="text-xs font-semibold tracking-[0.28em] text-ag-muted">QUOTA</p>
+                  <h3 class="mt-2 text-lg font-semibold">Per-model remaining</h3>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button
+                    id="expandOtherBtn"
+                    class="hidden rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-ag-text hover:border-white/20 hover:bg-white/10"
+                  >
+                    Show all models
+                  </button>
+                </div>
+              </div>
+
+              <div id="quotaList" class="mt-5 grid gap-3"></div>
+              <div id="otherModels" class="mt-5 hidden">
+                <p class="mb-3 text-xs font-semibold tracking-[0.28em] text-ag-muted">OTHER MODELS</p>
+                <div id="quotaListOther" class="grid gap-3"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Settings modal -->
+    <div id="settingsModal" class="fixed inset-0 z-50 hidden">
+      <div id="settingsBackdrop" class="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
+      <div class="relative mx-auto flex h-full max-w-3xl items-end p-4 sm:items-center">
+        <div class="ag-panel w-full overflow-hidden p-0 shadow-glow">
+          <div class="flex items-center justify-between border-b border-white/10 px-5 py-4">
+            <div>
+              <h2 class="text-sm font-semibold">Settings</h2>
+              <p class="text-xs text-ag-muted">Configure OAuth and Cloud Code parameters. Saved locally in your browser.</p>
+            </div>
+            <button
+              id="settingsCloseBtn"
+              class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-ag-text hover:border-white/20 hover:bg-white/10"
+            >
+              Close
+            </button>
+          </div>
+
+          <div class="grid gap-5 px-5 py-5 sm:grid-cols-2">
+            <div class="sm:col-span-2">
+              <label class="block text-xs font-semibold text-ag-muted">Google OAuth Client ID (Web application)</label>
+              <input
+                id="clientIdInput"
+                type="text"
+                placeholder="1234567890-abc123def456.apps.googleusercontent.com"
+                class="mt-2 w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-ag-text placeholder:text-ag-muted/60 focus:border-ag-cyan/60 focus:outline-none"
+                spellcheck="false"
+                autocomplete="off"
+              />
+              <p class="mt-2 text-xs text-ag-muted">
+                Tip: Add your GitHub Pages URL as an Authorized JavaScript origin in Google Cloud Console.
+              </p>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-ag-muted">OAuth Scopes</label>
+              <input
+                id="scopesInput"
+                type="text"
+                class="mt-2 w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-ag-text placeholder:text-ag-muted/60 focus:border-ag-cyan/60 focus:outline-none"
+                spellcheck="false"
+                autocomplete="off"
+              />
+              <p class="mt-2 text-xs text-ag-muted">
+                Default includes <span class="font-mono">openid email profile</span> and <span class="font-mono">cloud-platform</span>.
+              </p>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-ag-muted">Duet Project (loadCodeAssist)</label>
+              <input
+                id="duetProjectInput"
+                type="text"
+                class="mt-2 w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-ag-text placeholder:text-ag-muted/60 focus:border-ag-cyan/60 focus:outline-none"
+                spellcheck="false"
+                autocomplete="off"
+              />
+              <p class="mt-2 text-xs text-ag-muted">Used in the request body metadata as <span class="font-mono">duetProject</span>.</p>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-ag-muted">Quota Project (fetchAvailableModels)</label>
+              <input
+                id="quotaProjectInput"
+                type="text"
+                placeholder="(optional) project id"
+                class="mt-2 w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-ag-text placeholder:text-ag-muted/60 focus:border-ag-cyan/60 focus:outline-none"
+                spellcheck="false"
+                autocomplete="off"
+              />
+              <p class="mt-2 text-xs text-ag-muted">Optional <span class="font-mono">project</span> field in the quota request body.</p>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-ag-muted">API Host Mode</label>
+              <select
+                id="hostModeSelect"
+                class="mt-2 w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-ag-text focus:border-ag-cyan/60 focus:outline-none"
+              >
+                <option value="auto">Auto (fallback to daily)</option>
+                <option value="primary">Primary only</option>
+                <option value="daily">Daily only</option>
+              </select>
+              <p class="mt-2 text-xs text-ag-muted">
+                Primary: <span class="font-mono">cloudcode-pa.googleapis.com</span>, fallback: <span class="font-mono">daily-cloudcode-pa.googleapis.com</span>.
+              </p>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-ag-muted">Auto-refresh Interval</label>
+              <input
+                id="refreshIntervalInput"
+                type="number"
+                min="10"
+                step="1"
+                class="mt-2 w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-ag-text focus:border-ag-cyan/60 focus:outline-none"
+              />
+              <p class="mt-2 text-xs text-ag-muted">Seconds between refreshes. Default: 30.</p>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 px-5 py-4">
+            <div class="flex flex-wrap gap-2">
+              <button
+                id="saveSettingsBtn"
+                class="rounded-2xl bg-gradient-to-r from-ag-neon/90 to-ag-cyan/80 px-4 py-2.5 text-xs font-semibold text-black shadow-glowCyan hover:brightness-110"
+              >
+                Save
+              </button>
+              <button
+                id="clearTokenBtn"
+                class="rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-xs font-semibold text-ag-text hover:border-white/20 hover:bg-white/10"
+              >
+                Clear token
+              </button>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button
+                id="signOutBtn"
+                class="rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-xs font-semibold text-ag-text hover:border-white/20 hover:bg-white/10"
+              >
+                Sign out
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="./js/app.js"></script>
+  </body>
+</html>
